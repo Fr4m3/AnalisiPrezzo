@@ -222,8 +222,8 @@
 
       <div class="card">
         <p class="meta">
-          Spunta i prodotti e premi “Elimina selezionati” per rimuoverne
-          più di uno alla volta.
+          Spunta i prodotti e premi “Elimina selezionati” per rimuoverne più di
+          uno alla volta.
         </p>
         <ul id="list" class="list">
           <li class="meta">Carica la lista…</li>
@@ -320,21 +320,33 @@
         const owner = $("owner").value.trim(),
           repo = $("repo").value.trim(),
           branch = $("branch").value.trim();
-        const body = {
-          message,
-          content: b64enc(JSON.stringify(products, null, 2)),
-          branch,
-        };
-        if (window.__sha) body.sha = window.__sha;
-        const res = await api(
-          `/repos/${owner}/${repo}/contents/products.json`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          },
-        );
-        if (!res.ok) {
+        const body = JSON.stringify(products, null, 2);
+        for (let attempt = 0; attempt < 3; attempt++) {
+          if (window.__sha == null) {
+            const cur = await api(
+              `/repos/${owner}/${repo}/contents/products.json?ref=${branch}`,
+            );
+            if (cur.ok) window.__sha = (await cur.json()).sha;
+          }
+          const payload = { message, content: b64enc(body), branch };
+          if (window.__sha) payload.sha = window.__sha;
+          const res = await api(
+            `/repos/${owner}/${repo}/contents/products.json`,
+            {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            },
+          );
+          if (res.ok) {
+            const data = await res.json();
+            window.__sha = data.content.sha;
+            return true;
+          }
+          if (res.status === 409) {
+            window.__sha = null;
+            continue;
+          }
           if (res.status === 401)
             setStatus(
               "Errore salvataggio: token non valido o senza permessi (401).",
@@ -348,9 +360,8 @@
           else setStatus("Errore salvataggio: " + res.status, false);
           return false;
         }
-        const data = await res.json();
-        window.__sha = data.content.sha;
-        return true;
+        setStatus("Errore salvataggio: conflitto (409) ripetuto, riprova.", false);
+        return false;
       }
 
       async function getConfig() {
@@ -379,18 +390,30 @@
         const owner = $("owner").value.trim(),
           repo = $("repo").value.trim(),
           branch = $("branch").value.trim();
-        const body = {
-          message,
-          content: b64enc(JSON.stringify(cfg, null, 2)),
-          branch,
-        };
-        if (window.__cfgsha) body.sha = window.__cfgsha;
-        const res = await api(`/repos/${owner}/${repo}/contents/config.json`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) {
+        const body = JSON.stringify(cfg, null, 2);
+        for (let attempt = 0; attempt < 3; attempt++) {
+          if (window.__cfgsha == null) {
+            const cur = await api(
+              `/repos/${owner}/${repo}/contents/config.json?ref=${branch}`,
+            );
+            if (cur.ok) window.__cfgsha = (await cur.json()).sha;
+          }
+          const payload = { message, content: b64enc(body), branch };
+          if (window.__cfgsha) payload.sha = window.__cfgsha;
+          const res = await api(`/repos/${owner}/${repo}/contents/config.json`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            window.__cfgsha = data.content.sha;
+            return true;
+          }
+          if (res.status === 409) {
+            window.__cfgsha = null;
+            continue;
+          }
           if (res.status === 401)
             setStatus(
               "Errore config: token non valido o senza permessi (401).",
@@ -404,9 +427,8 @@
           else setStatus("Errore salvataggio config: " + res.status, false);
           return false;
         }
-        const data = await res.json();
-        window.__cfgsha = data.content.sha;
-        return true;
+        setStatus("Errore config: conflitto (409) ripetuto, riprova.", false);
+        return false;
       }
 
       async function triggerCheck(force = false) {
