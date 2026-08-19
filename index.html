@@ -166,7 +166,16 @@
         <div class="row" style="margin-top: 0.6rem; align-items: flex-end">
           <div style="flex: 1 1 220px">
             <label>Frequenza controllo</label>
-            <select id="interval" style="width: 100%; padding: 0.5rem; border: 1px solid #dcdde1; border-radius: 6px; font-size: 1rem">
+            <select
+              id="interval"
+              style="
+                width: 100%;
+                padding: 0.5rem;
+                border: 1px solid #dcdde1;
+                border-radius: 6px;
+                font-size: 1rem;
+              "
+            >
               <option value="15">15 minuti</option>
               <option value="30">30 minuti</option>
               <option value="60" selected>1 ora</option>
@@ -209,6 +218,20 @@
         cfgKeys.forEach((k) =>
           localStorage.setItem("pa_" + k, $(k).value.trim()),
         );
+        $("branch").value = $("branch").value.trim() || "main";
+      }
+      function requireCfg() {
+        const o = $("owner").value.trim(),
+          r = $("repo").value.trim(),
+          t = $("token").value.trim();
+        if (!o || !r || !t) {
+          setStatus(
+            "⚠️ Compila Owner, Repo e Token nelle impostazioni ⚙️ (servono per salvare).",
+            false,
+          );
+          return false;
+        }
+        return true;
       }
       function api(path, opts = {}) {
         const token = $("token").value.trim();
@@ -236,7 +259,7 @@
           repo = $("repo").value.trim(),
           branch = $("branch").value.trim();
         if (!owner || !repo) {
-          setStatus("Inserisci owner e repo nelle impostazioni.", false);
+          setStatus("Inserisci Owner, Repo e Token nelle impostazioni ⚙️.", false);
           return null;
         }
         const res = await api(
@@ -276,7 +299,12 @@
           },
         );
         if (!res.ok) {
-          setStatus("Errore salvataggio: " + res.status, false);
+          if (res.status === 401)
+            setStatus("Errore salvataggio: token non valido o senza permessi (401).", false);
+          else if (res.status === 404)
+            setStatus("Errore salvataggio: verifica Owner/Repo/Branch nelle impostazioni ⚙️ (404).", false);
+          else
+            setStatus("Errore salvataggio: " + res.status, false);
           return false;
         }
         const data = await res.json();
@@ -322,7 +350,12 @@
           body: JSON.stringify(body),
         });
         if (!res.ok) {
-          setStatus("Errore salvataggio config: " + res.status, false);
+          if (res.status === 401)
+            setStatus("Errore config: token non valido o senza permessi (401).", false);
+          else if (res.status === 404)
+            setStatus("Errore config: verifica Owner/Repo/Branch nelle impostazioni ⚙️ (404).", false);
+          else
+            setStatus("Errore salvataggio config: " + res.status, false);
           return false;
         }
         const data = await res.json();
@@ -331,6 +364,7 @@
       }
 
       async function triggerCheck(force = false) {
+        if (!requireCfg()) return;
         const owner = $("owner").value.trim(),
           repo = $("repo").value.trim(),
           branch = $("branch").value.trim();
@@ -339,11 +373,18 @@
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ref: branch, inputs: { force: force ? "true" : "false" } }),
+            body: JSON.stringify({
+              ref: branch,
+              inputs: { force: force ? "true" : "false" },
+            }),
           },
         );
         if (res.status === 204) {
-          setStatus(force ? "✅ Check forzato avviato." : "✅ Check avviato su GitHub Actions.");
+          setStatus(
+            force
+              ? "✅ Check forzato avviato."
+              : "✅ Check avviato su GitHub Actions.",
+          );
         } else {
           setStatus("⚠️ Impossibile avviare il check: " + res.status, false);
         }
@@ -399,6 +440,7 @@
 
       async function addProduct() {
         saveCfg();
+        if (!requireCfg()) return;
         const url = $("url").value.trim();
         const price = parseFloat($("price").value);
         if (!/amazon\./i.test(url) || !/dp\//.test(url)) {
@@ -426,6 +468,7 @@
 
       async function removeAt(i) {
         saveCfg();
+        if (!requireCfg()) return;
         const products = (await getProducts()) || [];
         const removed = products.splice(i, 1)[0];
         if (await putProducts(products, "remove product via web")) {
@@ -442,6 +485,7 @@
       };
       $("saveIntBtn").onclick = async () => {
         saveCfg();
+        if (!requireCfg()) return;
         const cfg = (await getConfig()) || { interval_minutes: 60 };
         cfg.interval_minutes = parseInt($("interval").value, 10) || 60;
         if (await putConfig(cfg, "update interval via web")) {
