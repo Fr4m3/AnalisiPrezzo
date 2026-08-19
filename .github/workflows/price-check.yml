@@ -1,0 +1,35 @@
+name: Price Check
+
+on:
+  schedule:
+    - cron: "*/15 * * * *" # ogni 15 min (l'intervallo reale sta in config.json)
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Forza il check ignorando l'intervallo"
+        required: false
+        default: "false"
+
+permissions:
+  contents: write # necessario per fare commit di products.json
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run price check
+        env:
+          TELEGRAM_BOT: ${{ secrets.TELEGRAM_BOT }}
+          TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
+          FORCE_CHECK: ${{ github.event.inputs.force }}
+        run: python price_check.py

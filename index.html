@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Monitoraggio Prezzi Amazon</title>
+    <style>
+      :root {
+        --bg: #f5f7fa;
+        --card: #fff;
+        --accent: #e74c3c;
+        --text: #2c3e50;
+        --muted: #7f8c8d;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family: system-ui, Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        margin: 0;
+        padding: 1rem;
+      }
+      .wrap {
+        max-width: 760px;
+        margin: 0 auto;
+      }
+      h1 {
+        text-align: center;
+      }
+      .card {
+        background: var(--card);
+        border-radius: 10px;
+        padding: 1rem 1.25rem;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+        margin-bottom: 1rem;
+      }
+      label {
+        display: block;
+        font-size: 0.85rem;
+        color: var(--muted);
+        margin: 0.4rem 0 0.15rem;
+      }
+      input {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #dcdde1;
+        border-radius: 6px;
+        font-size: 1rem;
+      }
+      .row {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+      .row > div {
+        flex: 1 1 200px;
+      }
+      button {
+        cursor: pointer;
+        border: none;
+        border-radius: 6px;
+        padding: 0.55rem 0.9rem;
+        font-size: 0.95rem;
+        background: var(--accent);
+        color: #fff;
+      }
+      button.ghost {
+        background: #ecf0f1;
+        color: var(--text);
+      }
+      button.small {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.8rem;
+      }
+      .list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        padding: 0.6rem;
+        border-bottom: 1px solid #eee;
+      }
+      .item:last-child {
+        border-bottom: none;
+      }
+      .item a {
+        color: var(--accent);
+        text-decoration: none;
+        word-break: break-all;
+      }
+      .meta {
+        font-size: 0.8rem;
+        color: var(--muted);
+      }
+      .status {
+        font-size: 0.9rem;
+        min-height: 1.2em;
+        margin-top: 0.5rem;
+      }
+      .ok {
+        color: #27ae60;
+      }
+      .err {
+        color: var(--accent);
+      }
+      details summary {
+        cursor: pointer;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>🛒 Monitoraggio Prezzi Amazon</h1>
+
+      <div class="card">
+        <details>
+          <summary>⚙️ Impostazioni repository (salvate nel browser)</summary>
+          <div class="row">
+            <div>
+              <label>Owner / utente GitHub</label
+              ><input id="owner" placeholder="es. mario-rossi" />
+            </div>
+            <div>
+              <label>Nome repo</label
+              ><input id="repo" placeholder="es. price-alert" />
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Branch</label
+              ><input id="branch" placeholder="main" value="main" />
+            </div>
+            <div>
+              <label>Token GitHub (repo + workflow)</label
+              ><input id="token" type="password" placeholder="ghp_..." />
+            </div>
+          </div>
+          <p class="meta">
+            Il token serve solo nel tuo browser (localStorage) per
+            leggere/scrivere il file e avviare il check. Non viene mai inviato a
+            terzi.
+          </p>
+        </details>
+      </div>
+
+      <div class="card">
+        <div class="row">
+          <div style="flex: 3">
+            <label>URL prodotto Amazon</label
+            ><input id="url" placeholder="https://www.amazon.com/dp/B0..." />
+          </div>
+          <div style="flex: 1">
+            <label>Prezzo soglia (€)</label
+            ><input id="price" type="number" step="0.01" placeholder="49.99" />
+          </div>
+        </div>
+        <div class="row" style="margin-top: 0.6rem; align-items: flex-end">
+          <div style="flex: 1 1 220px">
+            <label>Frequenza controllo</label>
+            <select id="interval" style="width: 100%; padding: 0.5rem; border: 1px solid #dcdde1; border-radius: 6px; font-size: 1rem">
+              <option value="15">15 minuti</option>
+              <option value="30">30 minuti</option>
+              <option value="60" selected>1 ora</option>
+              <option value="120">2 ore</option>
+              <option value="180">3 ore</option>
+              <option value="360">6 ore</option>
+              <option value="720">12 ore</option>
+              <option value="1440">24 ore</option>
+            </select>
+          </div>
+          <div style="flex: 0 0 auto">
+            <button id="saveIntBtn" class="ghost">💾 Salva frequenza</button>
+          </div>
+        </div>
+        <div style="margin-top: 0.6rem; display: flex; gap: 0.5rem">
+          <button id="addBtn">➕ Aggiungi</button>
+          <button id="refreshBtn" class="ghost">🔄 Aggiorna lista</button>
+          <button id="checkBtn" class="ghost">⚡ Check ora</button>
+        </div>
+        <div id="status" class="status"></div>
+      </div>
+
+      <div class="card">
+        <ul id="list" class="list">
+          <li class="meta">Carica la lista…</li>
+        </ul>
+      </div>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const cfgKeys = ["owner", "repo", "branch", "token"];
+      cfgKeys.forEach((k) => {
+        const v = localStorage.getItem("pa_" + k);
+        if (v) $(k).value = v;
+      });
+      $("branch").value = $("branch").value || "main";
+
+      function saveCfg() {
+        cfgKeys.forEach((k) =>
+          localStorage.setItem("pa_" + k, $(k).value.trim()),
+        );
+      }
+      function api(path, opts = {}) {
+        const token = $("token").value.trim();
+        const headers = {
+          Accept: "application/vnd.github+json",
+          ...(opts.headers || {}),
+        };
+        if (token) headers["Authorization"] = "Bearer " + token;
+        return fetch("https://api.github.com" + path, { ...opts, headers });
+      }
+      function b64enc(str) {
+        return btoa(unescape(encodeURIComponent(str)));
+      }
+      function b64dec(b64) {
+        return decodeURIComponent(escape(atob(b64)));
+      }
+      function setStatus(msg, ok = true) {
+        const s = $("status");
+        s.textContent = msg;
+        s.className = "status " + (ok ? "ok" : "err");
+      }
+
+      async function getProducts() {
+        const owner = $("owner").value.trim(),
+          repo = $("repo").value.trim(),
+          branch = $("branch").value.trim();
+        if (!owner || !repo) {
+          setStatus("Inserisci owner e repo nelle impostazioni.", false);
+          return null;
+        }
+        const res = await api(
+          `/repos/${owner}/${repo}/contents/products.json?ref=${branch}`,
+        );
+        if (res.status === 404) return [];
+        if (!res.ok) {
+          setStatus("Errore lettura prodotti: " + res.status, false);
+          return null;
+        }
+        const data = await res.json();
+        window.__sha = data.sha;
+        try {
+          return JSON.parse(b64dec(data.content));
+        } catch (e) {
+          setStatus("JSON non valido nel repo.", false);
+          return null;
+        }
+      }
+
+      async function putProducts(products, message) {
+        const owner = $("owner").value.trim(),
+          repo = $("repo").value.trim(),
+          branch = $("branch").value.trim();
+        const body = {
+          message,
+          content: b64enc(JSON.stringify(products, null, 2)),
+          branch,
+        };
+        if (window.__sha) body.sha = window.__sha;
+        const res = await api(
+          `/repos/${owner}/${repo}/contents/products.json`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          },
+        );
+        if (!res.ok) {
+          setStatus("Errore salvataggio: " + res.status, false);
+          return false;
+        }
+        const data = await res.json();
+        window.__sha = data.content.sha;
+        return true;
+      }
+
+      async function getConfig() {
+        const owner = $("owner").value.trim(),
+          repo = $("repo").value.trim(),
+          branch = $("branch").value.trim();
+        if (!owner || !repo) return { interval_minutes: 60 };
+        const res = await api(
+          `/repos/${owner}/${repo}/contents/config.json?ref=${branch}`,
+        );
+        if (res.status === 404) return { interval_minutes: 60 };
+        if (!res.ok) {
+          setStatus("Errore lettura config: " + res.status, false);
+          return { interval_minutes: 60 };
+        }
+        const data = await res.json();
+        window.__cfgsha = data.sha;
+        try {
+          return JSON.parse(b64dec(data.content));
+        } catch (e) {
+          return { interval_minutes: 60 };
+        }
+      }
+
+      async function putConfig(cfg, message) {
+        const owner = $("owner").value.trim(),
+          repo = $("repo").value.trim(),
+          branch = $("branch").value.trim();
+        const body = {
+          message,
+          content: b64enc(JSON.stringify(cfg, null, 2)),
+          branch,
+        };
+        if (window.__cfgsha) body.sha = window.__cfgsha;
+        const res = await api(`/repos/${owner}/${repo}/contents/config.json`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+          setStatus("Errore salvataggio config: " + res.status, false);
+          return false;
+        }
+        const data = await res.json();
+        window.__cfgsha = data.content.sha;
+        return true;
+      }
+
+      async function triggerCheck(force = false) {
+        const owner = $("owner").value.trim(),
+          repo = $("repo").value.trim(),
+          branch = $("branch").value.trim();
+        const res = await api(
+          `/repos/${owner}/${repo}/actions/workflows/price-check.yml/dispatches`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ref: branch, inputs: { force: force ? "true" : "false" } }),
+          },
+        );
+        if (res.status === 204) {
+          setStatus(force ? "✅ Check forzato avviato." : "✅ Check avviato su GitHub Actions.");
+        } else {
+          setStatus("⚠️ Impossibile avviare il check: " + res.status, false);
+        }
+      }
+
+      function render(products) {
+        const ul = $("list");
+        ul.replaceChildren();
+        if (!products || !products.length) {
+          const li = document.createElement("li");
+          li.className = "meta";
+          li.textContent = "Nessun prodotto. Aggiungine uno sopra.";
+          ul.appendChild(li);
+          return;
+        }
+        products.forEach((p, i) => {
+          const li = document.createElement("li");
+          li.className = "item";
+          const left = document.createElement("div");
+          const a = document.createElement("a");
+          a.href = p.url;
+          a.target = "_blank";
+          a.textContent = p.url;
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          const last =
+            p.last_price != null ? "€" + Number(p.last_price).toFixed(2) : "—";
+          const when = p.last_checked
+            ? new Date(p.last_checked).toLocaleString()
+            : "mai";
+          meta.textContent = `Soglia €${Number(p.target_price).toFixed(2)} · Ultimo ${last} · ${when}`;
+          left.appendChild(a);
+          left.appendChild(meta);
+          const del = document.createElement("button");
+          del.className = "small ghost";
+          del.textContent = "🗑️";
+          del.onclick = () => removeAt(i);
+          li.appendChild(left);
+          li.appendChild(del);
+          ul.appendChild(li);
+        });
+      }
+
+      async function refresh() {
+        saveCfg();
+        const products = await getProducts();
+        if (products) render(products);
+        const cfg = await getConfig();
+        if (cfg && cfg.interval_minutes) {
+          $("interval").value = String(cfg.interval_minutes);
+        }
+      }
+
+      async function addProduct() {
+        saveCfg();
+        const url = $("url").value.trim();
+        const price = parseFloat($("price").value);
+        if (!/amazon\./i.test(url) || !/dp\//.test(url)) {
+          setStatus("URL Amazon non valido.", false);
+          return;
+        }
+        if (isNaN(price)) {
+          setStatus("Prezzo soglia non valido.", false);
+          return;
+        }
+        const products = (await getProducts()) || [];
+        if (products.some((p) => p.url === url)) {
+          setStatus("Prodotto già presente.", false);
+          return;
+        }
+        products.push({ url, target_price: price });
+        if (await putProducts(products, "add product via web")) {
+          setStatus("✅ Prodotto aggiunto.");
+          $("url").value = "";
+          $("price").value = "";
+          render(products);
+          triggerCheck();
+        }
+      }
+
+      async function removeAt(i) {
+        saveCfg();
+        const products = (await getProducts()) || [];
+        const removed = products.splice(i, 1)[0];
+        if (await putProducts(products, "remove product via web")) {
+          setStatus("🗑️ Rimosso: " + removed.url);
+          render(products);
+        }
+      }
+
+      $("addBtn").onclick = addProduct;
+      $("refreshBtn").onclick = refresh;
+      $("checkBtn").onclick = () => {
+        saveCfg();
+        triggerCheck(true);
+      };
+      $("saveIntBtn").onclick = async () => {
+        saveCfg();
+        const cfg = (await getConfig()) || { interval_minutes: 60 };
+        cfg.interval_minutes = parseInt($("interval").value, 10) || 60;
+        if (await putConfig(cfg, "update interval via web")) {
+          setStatus("✅ Frequenza salvata.");
+        }
+      };
+      refresh();
+    </script>
+  </body>
+</html>
