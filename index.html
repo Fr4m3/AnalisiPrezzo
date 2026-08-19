@@ -259,7 +259,10 @@
           repo = $("repo").value.trim(),
           branch = $("branch").value.trim();
         if (!owner || !repo) {
-          setStatus("Inserisci Owner, Repo e Token nelle impostazioni ⚙️.", false);
+          setStatus(
+            "Inserisci Owner, Repo e Token nelle impostazioni ⚙️.",
+            false,
+          );
           return null;
         }
         const res = await api(
@@ -300,11 +303,16 @@
         );
         if (!res.ok) {
           if (res.status === 401)
-            setStatus("Errore salvataggio: token non valido o senza permessi (401).", false);
+            setStatus(
+              "Errore salvataggio: token non valido o senza permessi (401).",
+              false,
+            );
           else if (res.status === 404)
-            setStatus("Errore salvataggio: verifica Owner/Repo/Branch nelle impostazioni ⚙️ (404).", false);
-          else
-            setStatus("Errore salvataggio: " + res.status, false);
+            setStatus(
+              "Errore salvataggio: verifica Owner/Repo/Branch nelle impostazioni ⚙️ (404).",
+              false,
+            );
+          else setStatus("Errore salvataggio: " + res.status, false);
           return false;
         }
         const data = await res.json();
@@ -351,11 +359,16 @@
         });
         if (!res.ok) {
           if (res.status === 401)
-            setStatus("Errore config: token non valido o senza permessi (401).", false);
+            setStatus(
+              "Errore config: token non valido o senza permessi (401).",
+              false,
+            );
           else if (res.status === 404)
-            setStatus("Errore config: verifica Owner/Repo/Branch nelle impostazioni ⚙️ (404).", false);
-          else
-            setStatus("Errore salvataggio config: " + res.status, false);
+            setStatus(
+              "Errore config: verifica Owner/Repo/Branch nelle impostazioni ⚙️ (404).",
+              false,
+            );
+          else setStatus("Errore salvataggio config: " + res.status, false);
           return false;
         }
         const data = await res.json();
