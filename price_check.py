@@ -75,14 +75,16 @@ def fetch_price(url: str):
         return _to_float(m.group(1))
 
     # 2) dedicated price spans
-    m = re.search(r'id="priceblock_(?:ourprice|dealprice)"[^>]*>([^<]+)<', html, re.IGNORECASE)
+    m = re.search(
+        r'id="priceblock_(?:ourprice|dealprice)"[^>]*>([^<]+)<', html, re.IGNORECASE
+    )
     if m:
         return _to_float(m.group(1))
 
     # 3) modern Amazon markup: a-price-whole (+ optional decimal)
-    whole = re.search(r'a-price-whole[^>]*>([\d.,\s]+?)<', html)
+    whole = re.search(r"a-price-whole[^>]*>([\d.,\s]+?)<", html)
     if whole:
-        dec = re.search(r'a-price-decimal[^>]*>([\d.,\s]+?)<', html)
+        dec = re.search(r"a-price-decimal[^>]*>([\d.,\s]+?)<", html)
         combined = whole.group(1)
         if dec:
             combined += dec.group(1)
@@ -134,7 +136,9 @@ def save_json(path: str, data):
 
 def commit_back(files):
     try:
-        subprocess.run(["git", "config", "user.email", "action@github.com"], check=False)
+        subprocess.run(
+            ["git", "config", "user.email", "action@github.com"], check=False
+        )
         subprocess.run(["git", "config", "user.name", "github-actions"], check=False)
         for fpath in files:
             subprocess.run(["git", "add", fpath], check=False)
