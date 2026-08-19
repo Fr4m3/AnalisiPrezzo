@@ -118,7 +118,7 @@ async function tgSend(env, msg) {
   try {
     const r = await fetch(
       `https://api.telegram.org/bot${env.TG_BOT}/sendMessage?chat_id=${env.TG_CHAT}` +
-        `&parse_mode=Markdown&text=${encodeURIComponent(msg)}`,
+        `&text=${encodeURIComponent(msg)}`,
     );
     const j = await r.json().catch(() => ({}));
     return { status: r.status, ok: !!j.ok, description: j.description };
