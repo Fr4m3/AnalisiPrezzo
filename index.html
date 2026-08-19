@@ -151,7 +151,11 @@
             </div>
             <div>
               <label>Worker Key (segreto condiviso)</label
-              ><input id="workerKey" type="password" placeholder="stringa segreta" />
+              ><input
+                id="workerKey"
+                type="password"
+                placeholder="stringa segreta"
+              />
             </div>
           </div>
           <p class="meta">
@@ -219,7 +223,14 @@
 
     <script>
       const $ = (id) => document.getElementById(id);
-      const cfgKeys = ["owner", "repo", "branch", "token", "workerUrl", "workerKey"];
+      const cfgKeys = [
+        "owner",
+        "repo",
+        "branch",
+        "token",
+        "workerUrl",
+        "workerKey",
+      ];
       cfgKeys.forEach((k) => {
         const v = localStorage.getItem("pa_" + k);
         if (v) $(k).value = v;
@@ -413,7 +424,10 @@
               refresh();
             } else {
               setStatus(
-                "⚠️ Worker ha risposto: " + res.status + " " + txt.slice(0, 120),
+                "⚠️ Worker ha risposto: " +
+                  res.status +
+                  " " +
+                  txt.slice(0, 120),
                 false,
               );
             }
