@@ -37,25 +37,25 @@ UA = {
     )
 }
 
-# Pattern that catches the dedicated price spans first, then any currency amount.
-PRICE_RE = re.compile(
-    r'id="priceblock_(?:ourprice|dealprice)"[^>]*>([^<]+)<',
-    re.IGNORECASE,
-)
 AMOUNT_RE = re.compile(r"[£$€]\s*([\d.,]+)")
 
 
-def _to_float(txt: str):
+def _to_float(txt):
+    if not txt:
+        return None
+    txt = txt.strip()
+    # keep only digits, dot and comma
+    txt = re.sub(r"[^\d.,]", "", txt)
+    if not txt:
+        return None
+    # normalise European decimals: 1.234,56 -> 1234.56 ; 123,45 -> 123.45
+    if "," in txt and "." in txt:
+        txt = txt.replace(".", "").replace(",", ".")
+    elif "," in txt:
+        txt = txt.replace(",", ".")
     try:
-        return float(
-            txt.replace("$", "")
-            .replace("£", "")
-            .replace("€", "")
-            .replace(",", "")
-            .replace(" ", "")
-            .strip()
-        )
-    except (ValueError, AttributeError):
+        return float(txt)
+    except ValueError:
         return None
 
 
@@ -67,15 +67,34 @@ def fetch_price(url: str):
         print(f"❌ fetch error {url}: {e}")
         return None
 
-    m = PRICE_RE.search(r.text) or AMOUNT_RE.search(r.text)
-    if not m:
-        print(f"⚠️  no price found for {url}")
-        return None
+    html = r.text
 
-    price = _to_float(m.group(1))
-    if price is None:
-        print(f"⚠️  cannot parse price '{m.group(1)}' for {url}")
-    return price
+    # 1) JSON embedded price (modern Amazon, incl. Amazon IT)
+    m = re.search(r'"priceAmount"\s*:\s*([\d.]+)', html)
+    if m:
+        return _to_float(m.group(1))
+
+    # 2) dedicated price spans
+    m = re.search(r'id="priceblock_(?:ourprice|dealprice)"[^>]*>([^<]+)<', html, re.IGNORECASE)
+    if m:
+        return _to_float(m.group(1))
+
+    # 3) modern Amazon markup: a-price-whole (+ optional decimal)
+    whole = re.search(r'a-price-whole[^>]*>([\d.,\s]+?)<', html)
+    if whole:
+        dec = re.search(r'a-price-decimal[^>]*>([\d.,\s]+?)<', html)
+        combined = whole.group(1)
+        if dec:
+            combined += dec.group(1)
+        return _to_float(combined)
+
+    # 4) fallback generic currency amount
+    m = AMOUNT_RE.search(html)
+    if m:
+        return _to_float(m.group(1))
+
+    print(f"⚠️  no price found for {url}")
+    return None
 
 
 def telegram_send(message: str):
@@ -115,14 +134,14 @@ def save_json(path: str, data):
 
 def commit_back(files):
     try:
-        subprocess.run(
-            ["git", "config", "user.email", "action@github.com"], check=False
-        )
+        subprocess.run(["git", "config", "user.email", "action@github.com"], check=False)
         subprocess.run(["git", "config", "user.name", "github-actions"], check=False)
         for fpath in files:
             subprocess.run(["git", "add", fpath], check=False)
         res = subprocess.run(["git", "diff", "--cached", "--quiet"], check=False)
         if res.returncode != 0:
+            # integrate eventuali modifiche remote (es. edit dalla pagina web)
+            subprocess.run(["git", "pull", "--rebase"], check=False)
             subprocess.run(
                 ["git", "commit", "-m", "chore: update prices and config"], check=False
             )
