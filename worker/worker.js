@@ -146,15 +146,32 @@ async function runCheck(env, force) {
   let alerts = 0;
   const tgResults = [];
   for (const p of products) {
+    const prev = p.last_price != null ? p.last_price : null;
+    if (p.initial_price == null && prev != null) p.initial_price = prev;
     p.last_checked = now.toISOString();
     const price = await fetchPrice(p.url);
     p.last_price = price;
-    if (price != null && price <= p.target_price) {
+    if (price == null) continue;
+    if (p.initial_price == null) p.initial_price = price;
+    const changed = prev != null && Math.abs(price - prev) >= 0.01;
+    const below = price <= p.target_price;
+    const crossedBelow = prev == null || prev > p.target_price;
+    let msg = null;
+    if (below && (crossedBelow || changed)) {
+      msg =
+        `💰 PREZZO SOTTO SOGLIA\n${p.url}\nPrezzo: €${price} (soglia €${p.target_price})`;
+      if (changed && prev != null) msg += `\n(variazione: €${prev} → €${price})`;
+    } else if (changed && prev != null) {
+      const arrow = price < prev ? "📉" : "📈";
+      msg = `${arrow} PREZZO CAMBIATO\n${p.url}\n€${prev} → €${price}`;
+      if (p.initial_price != null) {
+        const d = (price - p.initial_price).toFixed(2);
+        msg += `\n(dal primo rilevamento €${p.initial_price}, delta €${d})`;
+      }
+    }
+    if (msg) {
       alerts++;
-      const tg = await tgSend(
-        env,
-        `💰 *Prezzo basso!*\n${p.url}\nPrezzo: €${price} (soglia €${p.target_price})`,
-      );
+      const tg = await tgSend(env, msg);
       tgResults.push({ url: p.url, tg });
     }
   }

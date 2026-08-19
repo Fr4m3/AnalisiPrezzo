@@ -170,6 +170,12 @@
 
       <div class="card">
         <div class="row">
+          <div style="flex: 1">
+            <label>Nome (opzionale)</label
+            ><input id="name" placeholder="es. MSI RTX 5060" />
+          </div>
+        </div>
+        <div class="row">
           <div style="flex: 3">
             <label>URL prodotto Amazon</label
             ><input id="url" placeholder="https://www.amazon.com/dp/B0..." />
@@ -215,6 +221,10 @@
       </div>
 
       <div class="card">
+        <p class="meta">
+          Spunta i prodotti e premi “Elimina selezionati” per rimuoverne
+          più di uno alla volta.
+        </p>
         <ul id="list" class="list">
           <li class="meta">Carica la lista…</li>
         </ul>
@@ -473,14 +483,49 @@
           ul.appendChild(li);
           return;
         }
+        // Intestazione: seleziona tutti + elimina selezionati
+        const head = document.createElement("li");
+        head.className = "item";
+        const hleft = document.createElement("div");
+        hleft.style.display = "flex";
+        hleft.style.gap = "0.5rem";
+        hleft.style.alignItems = "center";
+        const selAll = document.createElement("input");
+        selAll.type = "checkbox";
+        selAll.id = "selAll";
+        const hlabel = document.createElement("span");
+        hlabel.className = "meta";
+        hlabel.textContent = "Seleziona tutti";
+        hleft.appendChild(selAll);
+        hleft.appendChild(hlabel);
+        const delBtn = document.createElement("button");
+        delBtn.className = "small ghost";
+        delBtn.textContent = "🗑️ Elimina selezionati";
+        delBtn.onclick = deleteSelected;
+        head.appendChild(hleft);
+        head.appendChild(delBtn);
+        ul.appendChild(head);
+
         products.forEach((p, i) => {
           const li = document.createElement("li");
           li.className = "item";
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.className = "sel";
+          cb.dataset.i = i;
           const left = document.createElement("div");
+          left.style.flex = "1";
+          const title = document.createElement("div");
+          title.style.fontWeight = "600";
+          title.textContent = p.name || p.url;
           const a = document.createElement("a");
           a.href = p.url;
           a.target = "_blank";
           a.textContent = p.url;
+          a.style.color = "var(--accent)";
+          a.style.textDecoration = "none";
+          a.style.fontSize = "0.78rem";
+          a.style.wordBreak = "break-all";
           const meta = document.createElement("div");
           meta.className = "meta";
           const last =
@@ -488,17 +533,56 @@
           const when = p.last_checked
             ? new Date(p.last_checked).toLocaleString()
             : "mai";
-          meta.textContent = `Soglia €${Number(p.target_price).toFixed(2)} · Ultimo ${last} · ${when}`;
+          const under =
+            p.last_price != null &&
+            p.target_price != null &&
+            p.last_price <= p.target_price;
+          let varLine = "";
+          if (
+            p.initial_price != null &&
+            p.last_price != null &&
+            Math.abs(p.last_price - p.initial_price) >= 0.01
+          ) {
+            const d = p.last_price - p.initial_price;
+            varLine = ` · variazione ${d >= 0 ? "+" : "−"}€${Math.abs(d).toFixed(2)}`;
+          }
+          meta.textContent =
+            `Soglia €${Number(p.target_price).toFixed(2)} · Ultimo ${last}` +
+            varLine +
+            ` · ${when}` +
+            (under ? " · ✅ sotto soglia" : "");
+          left.appendChild(title);
           left.appendChild(a);
           left.appendChild(meta);
-          const del = document.createElement("button");
-          del.className = "small ghost";
-          del.textContent = "🗑️";
-          del.onclick = () => removeAt(i);
+          li.appendChild(cb);
           li.appendChild(left);
-          li.appendChild(del);
           ul.appendChild(li);
         });
+
+        const sa = $("selAll");
+        if (sa)
+          sa.onchange = () =>
+            document
+              .querySelectorAll("#list .sel")
+              .forEach((c) => (c.checked = sa.checked));
+      }
+
+      async function deleteSelected() {
+        saveCfg();
+        if (!requireCfg()) return;
+        const boxes = [...document.querySelectorAll("#list .sel:checked")];
+        if (!boxes.length) {
+          setStatus("Nessun prodotto selezionato.", false);
+          return;
+        }
+        const idx = boxes.map((b) => parseInt(b.dataset.i, 10));
+        const products = (await getProducts()) || [];
+        const removed = products.filter((_, i) => idx.includes(i));
+        const kept = products.filter((_, i) => !idx.includes(i));
+        if (await putProducts(kept, "remove selected via web")) {
+          setStatus(`🗑️ Rimosso/i: ${removed.length} prodotto/i.`);
+          render(kept);
+        }
       }
 
       async function refresh() {
@@ -516,6 +600,7 @@
         if (!requireCfg()) return;
         const url = $("url").value.trim();
         const price = parseFloat($("price").value);
+        const name = $("name").value.trim();
         if (!/amazon\./i.test(url) || !/dp\//.test(url)) {
           setStatus("URL Amazon non valido.", false);
           return;
@@ -529,26 +614,18 @@
           setStatus("Prodotto già presente.", false);
           return;
         }
-        products.push({ url, target_price: price });
+        products.push({ url, target_price: price, ...(name ? { name } : {}) });
         if (await putProducts(products, "add product via web")) {
           setStatus("✅ Prodotto aggiunto.");
           $("url").value = "";
           $("price").value = "";
+          $("name").value = "";
           render(products);
           triggerCheck();
         }
       }
 
-      async function removeAt(i) {
-        saveCfg();
-        if (!requireCfg()) return;
-        const products = (await getProducts()) || [];
-        const removed = products.splice(i, 1)[0];
-        if (await putProducts(products, "remove product via web")) {
-          setStatus("🗑️ Rimosso: " + removed.url);
-          render(products);
-        }
-      }
+      // Rimozione multipla gestita da deleteSelected() (checkbox + pulsante).
 
       $("addBtn").onclick = addProduct;
       $("refreshBtn").onclick = refresh;
