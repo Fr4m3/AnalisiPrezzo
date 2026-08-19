@@ -1,0 +1,11 @@
+name = "analisiprezzo-worker"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+
+# Variabili non sensibili (le secret vanno aggiunte con: wrangler secret put ...)
+vars = { OWNER = "Fr4m3", REPO = "AnalisiPrezzo" }
+
+# Check automatico ogni 15 minuti (il worker rispetta comunque l'intervallo
+# impostato in config.json nel repo).
+[triggers]
+crons = ["*/15 * * * *"]

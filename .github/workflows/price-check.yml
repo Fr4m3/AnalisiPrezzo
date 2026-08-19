@@ -1,8 +1,9 @@
 name: Price Check
 
+# NOTA: la schedulazione automatica è gestita dal Cloudflare Worker
+# (cron ogni 15 min) per aggirare il blocco IP di Amazon sui runner di
+# GitHub Actions. Questo workflow resta come fallback manuale.
 on:
-  schedule:
-    - cron: "*/15 * * * *" # ogni 15 min (l'intervallo reale sta in config.json)
   workflow_dispatch:
     inputs:
       force:

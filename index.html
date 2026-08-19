@@ -144,10 +144,22 @@
               ><input id="token" type="password" placeholder="ghp_..." />
             </div>
           </div>
+          <div class="row">
+            <div>
+              <label>Worker URL (opzionale, per lo scrape)</label
+              ><input id="workerUrl" placeholder="https://xxxx.workers.dev" />
+            </div>
+            <div>
+              <label>Worker Key (segreto condiviso)</label
+              ><input id="workerKey" type="password" placeholder="stringa segreta" />
+            </div>
+          </div>
           <p class="meta">
-            Il token serve solo nel tuo browser (localStorage) per
-            leggere/scrivere il file e avviare il check. Non viene mai inviato a
-            terzi.
+            Il token GitHub serve nel browser per gestire i prodotti su GitHub.
+            Se usi un Cloudflare Worker per aggirare il blocco IP di Amazon,
+            inserisci qui URL e Key: il “Check ora” userà il Worker (che ha le
+            sue credenziali), mentre l'aggiunta/rimozione prodotti resta su
+            GitHub. Nessun dato viene inviato a terzi.
           </p>
         </details>
       </div>
@@ -207,7 +219,7 @@
 
     <script>
       const $ = (id) => document.getElementById(id);
-      const cfgKeys = ["owner", "repo", "branch", "token"];
+      const cfgKeys = ["owner", "repo", "branch", "token", "workerUrl", "workerKey"];
       cfgKeys.forEach((k) => {
         const v = localStorage.getItem("pa_" + k);
         if (v) $(k).value = v;
@@ -377,6 +389,40 @@
       }
 
       async function triggerCheck(force = false) {
+        saveCfg();
+        const workerUrl = $("workerUrl").value.trim();
+        const workerKey = $("workerKey").value.trim();
+        if (workerUrl) {
+          if (!workerKey) {
+            setStatus(
+              "⚠️ Inserisci anche la Worker Key nelle impostazioni ⚙️.",
+              false,
+            );
+            return;
+          }
+          setStatus("⏳ Check in corso via Worker…");
+          try {
+            const sep = workerUrl.includes("?") ? "&" : "?";
+            const res = await fetch(
+              workerUrl + sep + "force=1&key=" + encodeURIComponent(workerKey),
+              { cache: "no-store" },
+            );
+            const txt = await res.text();
+            if (res.ok) {
+              setStatus("✅ Check completato via Worker.");
+              refresh();
+            } else {
+              setStatus(
+                "⚠️ Worker ha risposto: " + res.status + " " + txt.slice(0, 120),
+                false,
+              );
+            }
+          } catch (e) {
+            setStatus("⚠️ Errore chiamata Worker: " + e.message, false);
+          }
+          return;
+        }
+        // fallback: GitHub Actions
         if (!requireCfg()) return;
         const owner = $("owner").value.trim(),
           repo = $("repo").value.trim(),
