@@ -170,14 +170,17 @@ def commit_back(files):
         for fpath in files:
             subprocess.run(["git", "add", fpath], check=False)
         res = subprocess.run(["git", "diff", "--cached", "--quiet"], check=False)
-        if res.returncode != 0:
-            # integrate eventuali modifiche remote (es. edit dalla pagina web)
-            subprocess.run(["git", "pull", "--rebase"], check=False)
-            subprocess.run(
-                ["git", "commit", "-m", "chore: update prices and config"], check=False
-            )
-            subprocess.run(["git", "push"], check=False)
-            print("✅ file aggiornati e pushati")
+        if res.returncode == 0:
+            return  # nessun cambiamento da salvare
+        # 1) salva in commit locale
+        subprocess.run(
+            ["git", "commit", "-m", "chore: update prices and config"], check=False
+        )
+        # 2) integra eventuali modifiche remote (es. edit dalla pagina web)
+        subprocess.run(["git", "pull", "--rebase"], check=False)
+        # 3) push
+        subprocess.run(["git", "push"], check=False)
+        print("✅ file aggiornati e pushati")
     except Exception as e:  # pragma: no cover - defensive
         print(f"⚠️  commit error: {e}")
 
