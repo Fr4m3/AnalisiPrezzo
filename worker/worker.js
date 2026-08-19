@@ -146,7 +146,7 @@ async function runCheck(env, force) {
   let alerts = 0;
   const tgResults = [];
   for (const p of products) {
-    const prev = p.last_price != null ? p.last_price : null;
+    const prev = p.last_price == null ? null : p.last_price;
     if (p.initial_price == null && prev != null) p.initial_price = prev;
     p.last_checked = now.toISOString();
     const price = await fetchPrice(p.url);
@@ -158,9 +158,9 @@ async function runCheck(env, force) {
     const crossedBelow = prev == null || prev > p.target_price;
     let msg = null;
     if (below && (crossedBelow || changed)) {
-      msg =
-        `💰 PREZZO SOTTO SOGLIA\n${p.url}\nPrezzo: €${price} (soglia €${p.target_price})`;
-      if (changed && prev != null) msg += `\n(variazione: €${prev} → €${price})`;
+      msg = `💰 PREZZO SOTTO SOGLIA\n${p.url}\nPrezzo: €${price} (soglia €${p.target_price})`;
+      if (changed && prev != null)
+        msg += `\n(variazione: €${prev} → €${price})`;
     } else if (changed && prev != null) {
       const arrow = price < prev ? "📉" : "📈";
       msg = `${arrow} PREZZO CAMBIATO\n${p.url}\n€${prev} → €${price}`;

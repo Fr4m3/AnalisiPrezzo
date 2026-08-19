@@ -281,6 +281,17 @@
       function b64dec(b64) {
         return decodeURIComponent(escape(atob(b64)));
       }
+      function shortUrl(u) {
+        try {
+          const url = new URL(u);
+          const m = u.match(/\/dp\/[A-Z0-9]+/i);
+          if (m) return url.hostname.replace(/^www\./, "") + m[0];
+          let s = url.hostname.replace(/^www\./, "") + url.pathname;
+          return s.length > 60 ? s.slice(0, 57) + "…" : s;
+        } catch (e) {
+          return u.length > 60 ? u.slice(0, 57) + "…" : u;
+        }
+      }
       function setStatus(msg, ok = true) {
         const s = $("status");
         s.textContent = msg;
@@ -539,15 +550,24 @@
           left.style.flex = "1";
           const title = document.createElement("div");
           title.style.fontWeight = "600";
-          title.textContent = p.name || p.url;
+          title.textContent = p.name || shortUrl(p.url);
+          title.style.whiteSpace = "nowrap";
+          title.style.overflow = "hidden";
+          title.style.textOverflow = "ellipsis";
           const a = document.createElement("a");
           a.href = p.url;
           a.target = "_blank";
-          a.textContent = p.url;
+          a.textContent = shortUrl(p.url);
+          a.title = p.url;
           a.style.color = "var(--accent)";
           a.style.textDecoration = "none";
           a.style.fontSize = "0.78rem";
-          a.style.wordBreak = "break-all";
+          a.style.display = "inline-block";
+          a.style.maxWidth = "100%";
+          a.style.whiteSpace = "nowrap";
+          a.style.overflow = "hidden";
+          a.style.textOverflow = "ellipsis";
+          a.style.verticalAlign = "bottom";
           const meta = document.createElement("div");
           meta.className = "meta";
           const last =
