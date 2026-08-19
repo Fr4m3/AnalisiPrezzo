@@ -30,7 +30,9 @@ function safeParse(txt, fallback) {
 
 function parsePrice(txt) {
   if (!txt) return null;
-  let s = String(txt).replace(/[^\d.,]/g, "").trim();
+  let s = String(txt)
+    .replace(/[^\d.,]/g, "")
+    .trim();
   if (!s) return null;
   if (s.indexOf(",") >= 0 && s.indexOf(".") >= 0)
     s = s.replace(/\./g, "").replace(",", ".");
@@ -113,10 +115,16 @@ async function ghPut(env, path, content, sha, message) {
 }
 
 async function tgSend(env, msg) {
-  await fetch(
-    `https://api.telegram.org/bot${env.TG_BOT}/sendMessage?chat_id=${env.TG_CHAT}` +
-      `&parse_mode=Markdown&text=${encodeURIComponent(msg)}`,
-  );
+  try {
+    const r = await fetch(
+      `https://api.telegram.org/bot${env.TG_BOT}/sendMessage?chat_id=${env.TG_CHAT}` +
+        `&parse_mode=Markdown&text=${encodeURIComponent(msg)}`,
+    );
+    const j = await r.json().catch(() => ({}));
+    return { status: r.status, ok: !!j.ok, description: j.description };
+  } catch (e) {
+    return { status: 0, ok: false, error: String(e) };
+  }
 }
 
 async function runCheck(env, force) {
@@ -128,20 +136,26 @@ async function runCheck(env, force) {
   const interval = config.interval_minutes || 60;
   const last = config.last_run ? new Date(config.last_run) : null;
   if (!force && last && (now - last) / 60000 < interval) {
-    return { skipped: true, interval, elapsed: Math.round((now - last) / 60000) };
+    return {
+      skipped: true,
+      interval,
+      elapsed: Math.round((now - last) / 60000),
+    };
   }
 
   let alerts = 0;
+  const tgResults = [];
   for (const p of products) {
     p.last_checked = now.toISOString();
     const price = await fetchPrice(p.url);
     p.last_price = price;
     if (price != null && price <= p.target_price) {
       alerts++;
-      await tgSend(
+      const tg = await tgSend(
         env,
         `💰 *Prezzo basso!*\n${p.url}\nPrezzo: €${price} (soglia €${p.target_price})`,
       );
+      tgResults.push({ url: p.url, tg });
     }
   }
 
@@ -161,7 +175,7 @@ async function runCheck(env, force) {
     "chore: update config (worker)",
   );
 
-  return { checked: products.length, alerts };
+  return { checked: products.length, alerts, tg: tgResults };
 }
 
 export default {
@@ -183,8 +197,7 @@ export default {
     const force = url.searchParams.get("force");
     const key = url.searchParams.get("key");
     if (force === "1") {
-      if (key !== env.SECRET)
-        return new Response("forbidden", { status: 403 });
+      if (key !== env.SECRET) return new Response("forbidden", { status: 403 });
       try {
         const res = await runCheck(env, true);
         return new Response(JSON.stringify(res), {
