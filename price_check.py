@@ -29,12 +29,25 @@ TELEGRAM_BOT = os.getenv("TELEGRAM_BOT")
 TELEGRAM_CHAT = os.getenv("TELEGRAM_CHAT")
 FORCE = str(os.getenv("FORCE_CHECK", "")).lower() in ("1", "true", "yes")
 
-UA = {
+HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/124.0.0.0 Safari/537.36"
-    )
+    ),
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9,"
+        "image/avif,image/webp,*/*;q=0.8"
+    ),
+    "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "Cache-Control": "max-age=0",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
 }
 
 AMOUNT_RE = re.compile(r"[£$€]\s*([\d.,]+)")
@@ -61,13 +74,20 @@ def _to_float(txt):
 
 def fetch_price(url: str):
     try:
-        r = requests.get(url, headers=UA, timeout=15)
+        r = requests.get(url, headers=HEADERS, timeout=20)
         r.raise_for_status()
     except requests.RequestException as e:
         print(f"❌ fetch error {url}: {e}")
         return None
 
     html = r.text
+    low = html.lower()
+    if "robot check" in low or "captcha" in low or "api-services-support" in low:
+        print(
+            "⚠️  Amazon ha servito una pagina 'Robot Check' (IP del runner "
+            "bloccato). Lo scrape diretto da GitHub Actions non è affidabile."
+        )
+        return None
 
     # 1) JSON embedded price (modern Amazon, incl. Amazon IT)
     m = re.search(r'"priceAmount"\s*:\s*([\d.]+)', html)
@@ -90,7 +110,14 @@ def fetch_price(url: str):
             combined += dec.group(1)
         return _to_float(combined)
 
-    # 4) fallback generic currency amount
+    # 4) a-offscreen (prezzo completo accessibile)
+    off = re.search(r'class="a-offscreen"[^>]*>([^<]+)<', html)
+    if off:
+        val = _to_float(off.group(1))
+        if val:
+            return val
+
+    # 5) fallback generic currency amount
     m = AMOUNT_RE.search(html)
     if m:
         return _to_float(m.group(1))
