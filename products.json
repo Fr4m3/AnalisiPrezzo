@@ -2,6 +2,9 @@
   {
     "url": "https://www.amazon.it/dp/B0F32N1ZGH",
     "target_price": 800,
-    "name": "MSI GeForce RTX 5060"
+    "name": "MSI GeForce RTX 5060",
+    "last_checked": "2026-08-19T15:24:08.227Z",
+    "last_price": 714.99,
+    "initial_price": 714.99
   }
 ]
