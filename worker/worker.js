@@ -129,6 +129,33 @@ async function fetchPrice(url) {
   return null;
 }
 
+// ---- Confronto marketplace europei ----
+const EU_TLDS = ["it", "de", "fr", "es", "nl"];
+const TLD_FLAG = { it: "🇮🇹", de: "🇩🇪", fr: "🇫🇷", es: "🇪🇸", nl: "🇳🇱" };
+
+function extractASIN(url) {
+  if (!url) return null;
+  const m = String(url).match(/\/dp\/([A-Z0-9]{10})/i);
+  return m ? m[1].toUpperCase() : null;
+}
+
+// Prezzi dello stesso ASIN sui marketplace UE (ASIN globale su Amazon).
+// Ritorna [{tld, price}] solo per i marketplace da cui si ottiene un prezzo reale
+// (le pagine bot/consent restituiscono null e vengono saltate).
+async function compareEU(asin) {
+  const results = await Promise.all(
+    EU_TLDS.map(async (tld) => {
+      try {
+        const price = await fetchPrice(`https://www.amazon.${tld}/dp/${asin}/`);
+        return price != null ? { tld, price } : null;
+      } catch (e) {
+        return null;
+      }
+    }),
+  );
+  return results.filter(Boolean);
+}
+
 async function ghGet(env, path) {
   const r = await fetch(
     `https://api.github.com/repos/${env.OWNER}/${env.REPO}/contents/${path}`,
@@ -250,6 +277,40 @@ async function runCheck(env, force) {
   return { checked: products.length, alerts, tg: tgResults };
 }
 
+// Confronto prezzi UE su tutti i prodotti in lista (comando ?compare=1).
+async function runCompare(env) {
+  const pf = await ghGet(env, "products.json");
+  const products = safeParse(b64decode(pf.content), []);
+  const out = [];
+  const blocks = ["🌍 CONFRONTO MARKETPLACE UE\n"];
+  for (const p of products) {
+    const asin = extractASIN(p.url);
+    if (!asin) continue;
+    const cmp = await compareEU(asin);
+    const label = p.name ? mdLink(p.name, p.url) : mdText(p.url || "");
+    let block = `\n${label}\n`;
+    if (!cmp.length) {
+      block += "  _nessun prezzo recuperato (pagina bot?)_\n";
+    } else {
+      cmp.sort((a, b) => a.price - b.price);
+      const min = cmp[0];
+      for (const c of cmp) {
+        const flag = TLD_FLAG[c.tld] || c.tld.toUpperCase();
+        block += `  ${flag} ${c.tld.toUpperCase()}  €${c.price.toFixed(2)}${c === min ? "  ← minimo" : ""}\n`;
+      }
+    }
+    blocks.push(block);
+    out.push({ name: p.name, asin, comparison: cmp });
+  }
+  blocks.push(
+    "\nℹ️ Prezzi ivati come da sito; all'importazione in IT l'IVA si ricalcola sulla " +
+      "destinazione. Spedizione esclusa.",
+  );
+  const msg = blocks.join("");
+  const tg = await tgSend(env, msg);
+  return { compared: out.length, tg, message: msg };
+}
+
 export default {
   async scheduled(_event, env) {
     try {
@@ -268,6 +329,21 @@ export default {
     }
     const force = url.searchParams.get("force");
     const key = url.searchParams.get("key");
+    const compare = url.searchParams.get("compare");
+    if (compare === "1") {
+      if (key !== env.SECRET) return new Response("forbidden", { status: 403 });
+      try {
+        const res = await runCompare(env);
+        return new Response(JSON.stringify(res), {
+          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: String(e) }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    }
     if (force === "1") {
       if (key !== env.SECRET) return new Response("forbidden", { status: 403 });
       try {
