@@ -64,6 +64,16 @@ function validatePrice(price, prev, target) {
   return true;
 }
 
+// Helper per link cliccabile in Markdown (Telegram): [testo](url)
+function mdText(s) {
+  return String(s == null ? "" : s).replace(/([_*`\[])/g, "\\$1");
+}
+function mdLink(text, url) {
+  if (!url) return mdText(text);
+  const safeUrl = String(url).replace(/\)/g, "\\)");
+  return `[${mdText(text)}](${safeUrl})`;
+}
+
 async function fetchPrice(url) {
   const headers = {
     "User-Agent":
@@ -142,7 +152,7 @@ async function tgSend(env, msg) {
   try {
     const r = await fetch(
       `https://api.telegram.org/bot${env.TG_BOT}/sendMessage?chat_id=${env.TG_CHAT}` +
-        `&text=${encodeURIComponent(msg)}`,
+        `&text=${encodeURIComponent(msg)}&parse_mode=Markdown`,
     );
     const j = await r.json().catch(() => ({}));
     return { status: r.status, ok: !!j.ok, description: j.description };
@@ -186,7 +196,7 @@ async function runCheck(env, force) {
     const changed = prev != null && Math.abs(price - prev) >= 0.01;
     const below = price <= p.target_price;
     const crossedBelow = prev == null || prev > p.target_price;
-    const label = p.name || p.url;
+    const label = p.name ? mdLink(p.name, p.url) : mdText(p.url || "");
     let msg = null;
     if (below && (crossedBelow || changed)) {
       // AVVISO SOTTO SOGLIA — messaggio dedicato e diverso
