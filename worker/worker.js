@@ -85,33 +85,46 @@ async function fetchPrice(url) {
     "Accept-Language": "it-IT,it;q=0.9,en;q=0.8",
   };
   const r = await fetch(url, { headers, redirect: "follow" });
+  if (!r.ok) {
+    console.error("HTTP " + r.status + " per " + url);
+    return null;
+  }
   const html = await r.text();
   const low = html.toLowerCase();
   if (
     low.includes("robot check") ||
     low.includes("captcha") ||
+    low.includes("enable cookies") ||
     low.includes("api-services-support")
   ) {
-    console.error("Amazon robot-check per " + url);
+    console.error("Amazon bot/consent page per " + url);
     return null;
   }
-  let m = html.match(/"priceAmount"\s*:\s*([\d.]+)/);
-  if (m) return parsePrice(m[1]);
-  m = html.match(/id="priceblock_(?:ourprice|dealprice)"[^>]*>([^<]+)</i);
-  if (m) return parsePrice(m[1]);
+  // 1) prezzo esplicito buybox (id legacy)
+  let m = html.match(/id="priceblock_(?:ourprice|dealprice)"[^>]*>([^<]+)</i);
+  if (m) {
+    const v = parsePrice(m[1]);
+    if (v) return v;
+  }
+  // 2) prezzo visualizzato principale (a-price-whole + decimal)
   m = html.match(/a-price-whole[^>]*>([\d.,\s]+?)</);
   if (m) {
     const dec = html.match(/a-price-decimal[^>]*>([\d.,\s]+?)</);
-    return parsePrice(m[1] + (dec ? dec[1] : ""));
+    const v = parsePrice(m[1] + (dec ? dec[1] : ""));
+    if (v) return v;
   }
+  // 3) primo a-offscreen (di solito il prezzo del buybox)
   m = html.match(/class="a-offscreen"[^>]*>([^<]+)</);
   if (m) {
     const v = parsePrice(m[1]);
     if (v) return v;
   }
-  // NOTA: volutamente NON usiamo un catch-all tipo /[£$€]\s*([\d.,]+)/
-  // perche' matcha importi casuali nella pagina (es. "risparmia X") e genera
-  // prezzi non realistici. Ci affidiamo ai selettori strutturati sopra.
+  // 4) priceAmount JSON (ultimo: puo' riferirsi a varianti/prezzi non buybox)
+  m = html.match(/"priceAmount"\s*:\s*([\d.]+)/);
+  if (m) {
+    const v = parsePrice(m[1]);
+    if (v) return v;
+  }
   console.error("Nessun prezzo trovato per " + url);
   return null;
 }
