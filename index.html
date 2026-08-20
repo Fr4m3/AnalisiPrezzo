@@ -165,6 +165,21 @@
             sue credenziali), mentre l'aggiunta/rimozione prodotti resta su
             GitHub. Nessun dato viene inviato a terzi.
           </p>
+          <div class="row" style="margin-top: 0.7rem">
+            <button id="exportBtn" class="ghost" type="button">
+              💾 Esporta impostazioni
+            </button>
+            <button id="importBtn" class="ghost" type="button">
+              📂 Importa impostazioni
+            </button>
+            <input id="importFile" type="file" accept="application/json" hidden />
+          </div>
+          <p class="meta">
+            Esporta un file JSON con TUTTE le impostazioni (inclusi Token e Key):
+            salvalo e re-importalo da un'altra sessione o da anonimo per non
+            riscrivere tutto. ⚠️ Il file contiene segreti: conservalo in un posto
+            sicuro.
+          </p>
         </details>
       </div>
 
@@ -242,9 +257,18 @@
         "workerUrl",
         "workerKey",
       ];
+      // Default del progetto: se il campo non e' salvato, lo pre-compiliamo
+      // cosi' da sessione anonima/nuova devi inserire solo Token + Worker Key.
+      const SETTINGS_DEFAULTS = {
+        owner: "Fr4m3",
+        repo: "AnalisiPrezzo",
+        branch: "main",
+        workerUrl: "https://shy-meadow-0dca.kingair80it.workers.dev/",
+      };
       cfgKeys.forEach((k) => {
         const v = localStorage.getItem("pa_" + k);
         if (v) $(k).value = v;
+        else if (SETTINGS_DEFAULTS[k] != null) $(k).value = SETTINGS_DEFAULTS[k];
       });
       $("branch").value = $("branch").value || "main";
 
@@ -554,6 +578,46 @@
         }
       }
 
+      function sparklineEl(history) {
+        if (!history || history.length < 2) return null;
+        const w = 240, h = 46, pad = 5;
+        const prices = history.map((x) => x.price);
+        const min = Math.min.apply(null, prices);
+        const max = Math.max.apply(null, prices);
+        const span = max - min || 1;
+        const n = history.length;
+        const pts = history.map((x, i) => {
+          const xc = pad + (i / (n - 1)) * (w - 2 * pad);
+          const yc = pad + (1 - (x.price - min) / span) * (h - 2 * pad);
+          return xc.toFixed(1) + "," + yc.toFixed(1);
+        });
+        const cur = prices[n - 1];
+        const lineCol = cur <= min + 1e-9 ? "#27ae60" : "var(--accent)";
+        const wrap = document.createElement("div");
+        wrap.style.marginTop = "0.3rem";
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("viewBox", "0 0 " + w + " " + h);
+        svg.setAttribute("width", "100%");
+        svg.setAttribute("height", String(h));
+        svg.setAttribute("preserveAspectRatio", "none");
+        svg.style.display = "block";
+        const poly = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+        poly.setAttribute("fill", "none");
+        poly.setAttribute("stroke", lineCol);
+        poly.setAttribute("stroke-width", "1.6");
+        poly.setAttribute("points", pts.join(" "));
+        svg.appendChild(poly);
+        const cap = document.createElement("div");
+        cap.className = "meta";
+        cap.style.marginTop = "0.15rem";
+        cap.textContent =
+          "📉 minimo €" + min.toFixed(2) + " · 📈 massimo €" +
+          max.toFixed(2) + " · " + n + " rilev.";
+        wrap.appendChild(svg);
+        wrap.appendChild(cap);
+        return wrap;
+      }
+
       function render(products) {
         const ul = $("list");
         ul.replaceChildren();
@@ -644,6 +708,8 @@
           left.appendChild(title);
           left.appendChild(a);
           left.appendChild(meta);
+          const chart = sparklineEl(p.history);
+          if (chart) left.appendChild(chart);
           li.appendChild(cb);
           li.appendChild(left);
           ul.appendChild(li);
@@ -717,6 +783,38 @@
 
       // Rimozione multipla gestita da deleteSelected() (checkbox + pulsante).
 
+      function exportSettings() {
+        saveCfg();
+        const data = {};
+        cfgKeys.forEach((k) => (data[k] = $(k).value.trim()));
+        const blob = new Blob([JSON.stringify(data, null, 2)], {
+          type: "application/json",
+        });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "analisiprezzo-settings.json";
+        a.click();
+        URL.revokeObjectURL(a.href);
+        setStatus("✅ Impostazioni esportate in analisiprezzo-settings.json");
+      }
+      function importSettings(file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const data = JSON.parse(reader.result);
+            cfgKeys.forEach((k) => {
+              if (data[k] != null) $(k).value = data[k];
+            });
+            saveCfg();
+            setStatus("✅ Impostazioni importate.");
+            refresh();
+          } catch (e) {
+            setStatus("⚠️ File non valido: " + e.message, false);
+          }
+        };
+        reader.readAsText(file);
+      }
+
       $("addBtn").onclick = addProduct;
       $("refreshBtn").onclick = refresh;
       $("checkBtn").onclick = () => {
@@ -725,6 +823,13 @@
       };
       $("compareBtn").onclick = () => {
         triggerCompare();
+      };
+      $("exportBtn").onclick = exportSettings;
+      $("importBtn").onclick = () => $("importFile").click();
+      $("importFile").onchange = (e) => {
+        if (e.target.files && e.target.files[0])
+          importSettings(e.target.files[0]);
+        e.target.value = "";
       };
       $("saveIntBtn").onclick = async () => {
         saveCfg();

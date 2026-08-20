@@ -233,6 +233,9 @@ async function runCheck(env, force) {
     }
     p.last_price = price;
     if (p.initial_price == null) p.initial_price = price;
+    // Storico prezzi per il grafico sulla pagina web (cap 1000 rilevazioni)
+    (p.history || (p.history = [])).push({ ts: now.toISOString(), price });
+    if (p.history.length > 1000) p.history = p.history.slice(-1000);
     const changed = prev != null && Math.abs(price - prev) >= 0.01;
     const below = price <= p.target_price;
     const crossedBelow = prev == null || prev > p.target_price;
