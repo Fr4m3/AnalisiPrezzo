@@ -41,6 +41,29 @@ function parsePrice(txt) {
   return isNaN(n) ? null : n;
 }
 
+// Filtra i prezzi non realistici (causa degli alert fasulli).
+// - scarta <=0 o > 1.000.000 (assurdo)
+// - se esiste una soglia, richiede che il prezzo stia in una banda
+//   [soglia*0.4 , max(soglia*12, 5000)]: cosi' un prezzo reale (anche molto
+//   sotto soglia, perche' e' proprio cio' che vogliamo rilevare) passa,
+//   mentre un valore spazzatura (es. 60 o 600.000 su un oggetto da 600) viene scartato.
+// - se c'e' una lettura precedente, un balzo >50% viene scartato SOLO se anche
+//   fuori banda; se dentro banda viene accettato (corregge un'eventuale baseline errata).
+function validatePrice(price, prev, target) {
+  if (price == null || !isFinite(price) || price <= 0) return false;
+  if (price > 1000000) return false;
+  const lower = target != null && target > 0 ? target * 0.4 : 1;
+  const upper = target != null && target > 0 ? Math.max(target * 12, 5000) : 1000000;
+  const inBand = price >= lower && price <= upper;
+  if (prev != null && prev > 0) {
+    const dev = Math.abs(price - prev) / prev;
+    if (dev > 0.5 && !inBand) return false;
+  } else if (!inBand) {
+    return false; // prima rilevazione fuori banda -> non registriamo il valore errato
+  }
+  return true;
+}
+
 async function fetchPrice(url) {
   const headers = {
     "User-Agent":
@@ -76,8 +99,9 @@ async function fetchPrice(url) {
     const v = parsePrice(m[1]);
     if (v) return v;
   }
-  m = html.match(/[£$€]\s*([\d.,]+)/);
-  if (m) return parsePrice(m[1]);
+  // NOTA: volutamente NON usiamo un catch-all tipo /[£$€]\s*([\d.,]+)/
+  // perche' matcha importi casuali nella pagina (es. "risparmia X") e genera
+  // prezzi non realistici. Ci affidiamo ai selettori strutturati sopra.
   console.error("Nessun prezzo trovato per " + url);
   return null;
 }
@@ -150,20 +174,28 @@ async function runCheck(env, force) {
     if (p.initial_price == null && prev != null) p.initial_price = prev;
     p.last_checked = now.toISOString();
     const price = await fetchPrice(p.url);
+    // Filtro prezzi non realistici: NON aggiorniamo last_price e NON inviamo alert
+    if (!validatePrice(price, prev, p.target_price)) {
+      console.warn(
+        `Prezzo non valido/non realistico per ${p.url}: ${price} (prev ${prev}) — skip`,
+      );
+      continue;
+    }
     p.last_price = price;
-    if (price == null) continue;
     if (p.initial_price == null) p.initial_price = price;
     const changed = prev != null && Math.abs(price - prev) >= 0.01;
     const below = price <= p.target_price;
     const crossedBelow = prev == null || prev > p.target_price;
+    const label = p.name || p.url;
     let msg = null;
     if (below && (crossedBelow || changed)) {
-      msg = `💰 PREZZO SOTTO SOGLIA\n${p.url}\nPrezzo: €${price} (soglia €${p.target_price})`;
-      if (changed && prev != null)
-        msg += `\n(variazione: €${prev} → €${price})`;
+      // AVVISO SOTTO SOGLIA — messaggio dedicato e diverso
+      msg = `🎯 PREZZO SOTTO SOGLIA!\n${label}\n€${price}  (soglia €${p.target_price})`;
+      if (changed && prev != null) msg += `\n(variazione €${prev} → €${price})`;
     } else if (changed && prev != null) {
+      // AVVISO VARIAZIONE — ogni cambiamento reale, anche sopra soglia
       const arrow = price < prev ? "📉" : "📈";
-      msg = `${arrow} PREZZO CAMBIATO\n${p.url}\n€${prev} → €${price}`;
+      msg = `${arrow} PREZZO AGGIORNATO\n${label}\n€${prev} → €${price}`;
       if (p.initial_price != null) {
         const d = (price - p.initial_price).toFixed(2);
         msg += `\n(dal primo rilevamento €${p.initial_price}, delta €${d})`;
