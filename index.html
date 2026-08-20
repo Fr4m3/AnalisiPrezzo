@@ -216,6 +216,7 @@
           <button id="addBtn">➕ Aggiungi</button>
           <button id="refreshBtn" class="ghost">🔄 Aggiorna lista</button>
           <button id="checkBtn" class="ghost">⚡ Check ora</button>
+          <button id="compareBtn" class="ghost">🌍 Confronta UE</button>
         </div>
         <div id="status" class="status"></div>
       </div>
@@ -371,7 +372,10 @@
           else setStatus("Errore salvataggio: " + res.status, false);
           return false;
         }
-        setStatus("Errore salvataggio: conflitto (409) ripetuto, riprova.", false);
+        setStatus(
+          "Errore salvataggio: conflitto (409) ripetuto, riprova.",
+          false,
+        );
         return false;
       }
 
@@ -411,11 +415,14 @@
           }
           const payload = { message, content: b64enc(body), branch };
           if (window.__cfgsha) payload.sha = window.__cfgsha;
-          const res = await api(`/repos/${owner}/${repo}/contents/config.json`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
+          const res = await api(
+            `/repos/${owner}/${repo}/contents/config.json`,
+            {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            },
+          );
           if (res.ok) {
             const data = await res.json();
             window.__cfgsha = data.content.sha;
@@ -503,6 +510,47 @@
           );
         } else {
           setStatus("⚠️ Impossibile avviare il check: " + res.status, false);
+        }
+      }
+
+      async function triggerCompare() {
+        saveCfg();
+        const workerUrl = $("workerUrl").value.trim();
+        const workerKey = $("workerKey").value.trim();
+        if (!workerUrl) {
+          setStatus(
+            "⚠️ Inserisci l'URL del Worker nelle impostazioni ⚙️.",
+            false,
+          );
+          return;
+        }
+        if (!workerKey) {
+          setStatus(
+            "⚠️ Inserisci anche la Worker Key nelle impostazioni ⚙️.",
+            false,
+          );
+          return;
+        }
+        setStatus("⏳ Confronto marketplace UE in corso via Worker…");
+        try {
+          const sep = workerUrl.includes("?") ? "&" : "?";
+          const res = await fetch(
+            workerUrl + sep + "compare=1&key=" + encodeURIComponent(workerKey),
+            { cache: "no-store" },
+          );
+          const txt = await res.text();
+          if (res.ok) {
+            setStatus(
+              "✅ Confronto UE completato — riepilogo inviato su Telegram.",
+            );
+          } else {
+            setStatus(
+              "⚠️ Worker ha risposto: " + res.status + " " + txt.slice(0, 120),
+              false,
+            );
+          }
+        } catch (e) {
+          setStatus("⚠️ Errore chiamata Worker: " + e.message, false);
         }
       }
 
@@ -674,6 +722,9 @@
       $("checkBtn").onclick = () => {
         saveCfg();
         triggerCheck(true);
+      };
+      $("compareBtn").onclick = () => {
+        triggerCompare();
       };
       $("saveIntBtn").onclick = async () => {
         saveCfg();
