@@ -3,7 +3,7 @@
     "url": "https://www.amazon.it/MSI-GeForce-INSPIRE-Scheda-Video/dp/B0F32N1ZGH/ref=sr_1_9?__mk_it_IT=%C3%85M%C3%85%C5%BD%C3%95%C3%91&crid=HC2SFIE34GB0&dib=eyJ2IjoiMSJ9.reNJ76HvwQtsCVVYkEMTwcQoifafZQqnZnD_0vAPeefInOx-MydbQYxwEtMOB2j6oW8BumLFYkKRZPvaS5Oub1sIwIURDefNqEdyQb5Oyd1xRLPG-cOKYIlYX0uJbuK3vSrJa2VvvKQt2Tbb7ZDpzjlL9O8NKj-uo-_G-dGlPl6V22ulh8_LPNE-ZkcRkXrHu-liCZg5ehJxpLKb67vExbx45LAEbDJihgNEFoHKgSrnDp-U7vtZ2skYJq5cFSU8757ggCSyBHzgjeGTs-WS2ZtwUGITjAi49jH2dVNdDsc.XX_0acmXaYxZ9KUb7RevFOCIDIbpt9ap_HzsvLhmetA&dib_tag=se&keywords=5060+16gb&qid=1787144637&sprefix=5060+16gb%2Caps%2C211&sr=8-9&ufe=app_do%3Aamzn1.fos.f8c2ab8c-2220-4fa9-a8aa-cf7cc7165a52",
     "target_price": 600,
     "name": "RTX 5060 16gb",
-    "last_checked": "2026-08-22T21:30:02.334Z",
+    "last_checked": "2026-08-22T21:45:02.530Z",
     "last_price": 735,
     "initial_price": 149,
     "history": [
@@ -446,6 +446,10 @@
       {
         "ts": "2026-08-22T21:30:02.334Z",
         "price": 735
+      },
+      {
+        "ts": "2026-08-22T21:45:02.530Z",
+        "price": 735
       }
     ]
   },
@@ -453,7 +457,7 @@
     "url": "https://www.amazon.it/MSI-GeForce-5060-SHADOW-PLUS/dp/B0F8BR2H6Z/ref=sr_1_2?__mk_it_IT=%C3%85M%C3%85%C5%BD%C3%95%C3%91&crid=1W308BH4YZFOC&dib=eyJ2IjoiMSJ9.bzmTqs2ywR4YVn-rGv6_-vai7nbFz6R3Fc-xX0udZLqH094J_uImwF9l7u4pBFltljqiSXsbvm_ZOGN-NhHpXIBK6kXyzjFadQbQzEuLBuxWe56rOgxO_04zE1ZjWVBbMU-6Nr7KrPRVTr72RWT4O1l8-UJ1H5QN6PCI-P55S-vh9rv9y-C85dexdsoKUWf5H8L2VK-berBdMDPVQDGM6rytqIqs6ptlZh9d9hnSY06O-ZXLWZl1OKQPrRjYdBQKApXABytQJt53JME1-9ziBC75OT6RUYFipHN4gMIMBL8.502RI1e3XHRsbUgAkHYc32FPhqPF0n6ISgfobsrF0UI&dib_tag=se&keywords=5060+16gb&qid=1787225121&sprefix=5060+16gb%2Caps%2C140&sr=8-2&ufe=app_do%3Aamzn1.fos.f8c2ab8c-2220-4fa9-a8aa-cf7cc7165a52",
     "target_price": 600,
     "name": "RTX5060 MSI OC",
-    "last_checked": "2026-08-22T21:30:02.334Z",
+    "last_checked": "2026-08-22T21:45:02.530Z",
     "last_price": 679,
     "initial_price": 557.37,
     "history": [
@@ -991,6 +995,10 @@
       },
       {
         "ts": "2026-08-22T21:30:02.334Z",
+        "price": 679
+      },
+      {
+        "ts": "2026-08-22T21:45:02.530Z",
         "price": 679
       }
     ]
